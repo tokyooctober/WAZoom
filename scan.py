@@ -1,3 +1,5 @@
+# https://pypi.org/project/obsws-python/1.1.0/
+#
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -13,12 +15,12 @@ import re
 def main():
     # Setup Selenium WebDriver
     option = webdriver.ChromeOptions()
-    option.add_argument(r"user-data-dir=c:\temp\whatsapp")
+    option.add_argument(r"user-data-dir=e:\src\WAZoom\whatsapp-cache")
     # option.add_experimental_option("excludeSwitches", ["enable-automation"])
     # option.add_experimental_option('useAutomationExtension', False)
     option.add_argument("start-maximized")
     #service = Service(ChromeDriverManager().install())
-    service = Service(executable_path='e:\src\zoom\chrome\chromedriver.exe')
+    service = Service(executable_path='e:\src\WAZoom\chrome\chromedriver.exe')
     driver = webdriver.Chrome(service=service, options=option)
 
     try:
@@ -26,6 +28,8 @@ def main():
         driver.get('https://web.whatsapp.com')
         print("Scan the QR code to log in to WhatsApp Web.")
 
+        time.sleep(5) # Give time for WA to update to latest msg.
+        
         # Wait until the page is loaded and QR code is scanned
         WebDriverWait(driver, 600).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'span[dir="ltr"]'))
@@ -34,20 +38,20 @@ def main():
         print("Logged into WhatsApp Web.")
 
         # wait for WhatsApp to load completely
-        #time.sleep(5)
        # driver.find_element(By.CSS_SELECTOR, "span[title='Edmund Trader Sharing']").click()
        # driver.find_element(By.CSS_SELECTOR, "span[title='mother HP']").click()
 
         foundZoom=False
         while True:
-            # Wait for a new message
-            # message = WebDriverWait(driver, 600).until(
-            #     EC.presence_of_element_located((By.CSS_SELECTOR, 'span._ao3e[dir="ltr"]'))
-            # )
             elements = driver.find_elements(By.CSS_SELECTOR, 'span._ao3e[dir="ltr"]')
             if not foundZoom: 
-                findZoomLink(elements,driver)
-                foundZoom=True
+                zoom_link = findZoomLink(elements)
+                if zoom_link:
+                    driver.execute_script("window.open('');")
+                    driver.switch_to.window(driver.window_handles[1])
+                    driver.get(zoom_link)
+                    driver.switch_to.window(driver.window_handles[0])
+                    foundZoom=True
             if foundZoom:
                 if findJoinNow(elements):
                     print("Starting recording...")
@@ -76,26 +80,21 @@ def findJoinNow(elements):
         found=True
     return found
 
-def findZoomLink(elements, driver):
+def findZoomLink(elements):
     print("------")
-    found=False
+    zoom_link=None
     for element in elements:
         print(f"Text:{element.text}")
         # Get the message text
         message_text = element.text
         if not isMatch(message_text, "edmund lee"):
             continue
-        found=True
         # Check if the message contains a Zoom link
         zoom_link = extract_zoom_link(message_text)
         if zoom_link:
             print(f"Zoom link found:>{zoom_link}<")
             # Click on the Zoom link
-            driver.execute_script("window.open('');")
-            driver.switch_to.window(driver.window_handles[1])
-            driver.get(zoom_link)
-            driver.switch_to.window(driver.window_handles[0])
-    return found
+    return zoom_link
 
 def isMatch(text, pattern):
     match = re.search(pattern,text, re.IGNORECASE)
