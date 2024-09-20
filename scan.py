@@ -15,12 +15,13 @@ import re
 def main():
     # Setup Selenium WebDriver
     option = webdriver.ChromeOptions()
-    option.add_argument(r"user-data-dir=e:\src\WAZoom\whatsapp-cache")
+    option.add_argument(r"user-data-dir=e:/src/WAZoom/whatsapp-cache")
     # option.add_experimental_option("excludeSwitches", ["enable-automation"])
     # option.add_experimental_option('useAutomationExtension', False)
     option.add_argument("start-maximized")
     #service = Service(ChromeDriverManager().install())
-    service = Service(executable_path='e:\src\WAZoom\chrome\chromedriver.exe')
+    #service = Service(executable_path='e:\\src\\WAZoom\\chrome\\chromedriver.exe', service_args=['--disable-build-check'])
+    service = Service(executable_path='e:\\src\\WAZoom\\chrome\\chromedriver.exe')
     driver = webdriver.Chrome(service=service, options=option)
 
     try:
