@@ -7,9 +7,11 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from datetime import datetime, timedelta
 import obsws_python as obs
 import time
 import re
+
 
 # ... existing code ...
 
@@ -123,7 +125,17 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
 
         print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
+
+        start_time = datetime.now()
+        timeout_delta = timedelta(minutes=3)
+        
         while True:
+
+            if datetime.now() - start_time > timeout_delta:
+                print(f"Timeout reached after 3 minutes")
+                start_obs_recording()
+                return 
+    
             messages = driver.find_elements(By.XPATH, '//div[contains(@class, "message-in")]')
             reversed_messages = list(reversed(messages))
             if reversed_messages:
@@ -133,7 +145,9 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                     start_obs_recording()
                     return  # Exit the loop after finding the target text
             time.sleep(5)  # Wait 5 seconds before checking again
-
+        
+        start_obs_recording()
+    
     except Exception as e:
         print(f"An error occurred while waiting for text: {e}")
         return False
