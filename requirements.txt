@@ -1,3 +1,4 @@
 obsws_python==1.7.0
 selenium==4.22.0
 webdriver_manager==4.0.1
+pyautogui==0.9.54

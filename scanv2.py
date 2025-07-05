@@ -16,7 +16,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
-
+from selenium.webdriver.common.action_chains import ActionChains
+import pyautogui
 
 # ... existing code ...
 
@@ -41,45 +42,77 @@ def click_zoom_link(driver, zoom_link):
         print(f"An error occurred while clicking the Zoom link: {e}")
 
 
-def minimize_native_zoom_window():
+def move_zoom_dialog_offscreen(driver):
+    # Get all windows and analyze their properties
+    all_windows = gw.getAllWindows()
+    print("Searching for VideoFrameWnd window...")
+    search_term = "videoframewnd"
+    # Find window at specific coordinates
+    video_port_windows = [w for w in all_windows if search_term in w.title.lower()]
+
+    if not video_port_windows:
+        print("No window with title 'VideoFrameWnd' found")
+
+        return
+
+    print(f"Found {len(video_port_windows)} VideoFrameWnd window(s)")
+
+    # Get the video window
+    video_port_window = video_port_windows[0]
+
     try:
-        # Wait for the Zoom main window to appear
-        zoom_main_window = None
-        attempts = 0
-        max_attempts = 10
+        # Get current window position and size
+        current_x = video_port_window.left
+        current_y = video_port_window.top
+        window_width = video_port_window.width
+        window_height = video_port_window.height
 
-        while not zoom_main_window and attempts < max_attempts:
-            zoom_windows = gw.getWindowsWithTitle("Zoom")
-            if zoom_windows:
-                zoom_main_window = zoom_windows[0]
-            else:
-                time.sleep(1)
-                attempts += 1
+        print(f"Current window position: ({current_x}, {current_y})")
+        print(f"Window size: {window_width} x {window_height}")
 
-        if not zoom_main_window:
-            print("Zoom main window not found after waiting.")
-            return
+        # Calculate target position (off-screen)
+        target_x = 1413
+        target_y = -1000
 
-        # Find the dialog sub-window with no title
-        dialog_window = None
-        for window in gw.getAllWindows():
-            if window.parent == zoom_main_window and not window.title:
-                dialog_window = window
-                break
+        drag_x = current_x + (window_width // 2)  # Center horizontally
+        drag_y = current_y + (window_height // 2)  # Center of title bar
 
-        if not dialog_window:
-            print("Dialog sub-window with no title not found.")
-            return
+        print(f"Will drag from position: ({drag_x}, {drag_y})")
+        print(f"Will drag to position: ({target_x}, {target_y})")
 
-        # Move the dialog window to a specific position (e.g., top-left corner)
-        dialog_window.moveTo(0, 0)
+        # Ensure window is active/focused first
+        video_port_window.activate()
+        time.sleep(0.5)  # Wait for window to activate
 
-        # Minimize the dialog window
-        dialog_window.minimize()
+        # Perform the drag operation
+        # Move to the drag point
+        pyautogui.moveTo(drag_x, drag_y, duration=0.5)
+        time.sleep(0.2)
 
-        print("Dialog sub-window with no title has been moved and minimized.")
+        # Press and hold left mouse button
+        pyautogui.mouseDown()
+        time.sleep(0.2)
+
+        # Drag to target position
+        pyautogui.dragTo(target_x, target_y, duration=1.0)
+        time.sleep(0.2)
+
+        # Release mouse button
+        pyautogui.mouseUp()
+
+        print(
+            f"VideoFrameWnd window has been dragged to position ({target_x}, {target_y})"
+        )
+
+        # Verify the new position
+        time.sleep(0.5)
+        video_port_window = gw.getWindowsWithTitle(video_port_window.title)[0]
+        new_x = video_port_window.left
+        new_y = video_port_window.top
+        print(f"New window position: ({new_x}, {new_y})")
+
     except Exception as e:
-        print(f"An error occurred while minimizing window: {e}")
+        print(f"Error moving zoom dialog off-screen: {e}")
 
 
 # ... existing code ...
@@ -132,6 +165,10 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
 
         print(f"Zoom link found: {zoom_link}")
         click_zoom_link(driver, zoom_link)
+
+        # Move the Zoom dialog window off-screen
+        time.sleep(10)  # wait 10 seconds to allow the zoom window to load
+        move_zoom_dialog_offscreen(driver)
 
         print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
