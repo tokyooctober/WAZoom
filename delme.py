@@ -65,7 +65,7 @@ def move_zoom_dialog_offscreen():
 
         # Try multiple approaches to move the window
         success = False
-        max_attempts = 3
+        max_attempts = 1
 
         for attempt in range(max_attempts):
             safe_print(f"\nAttempt {attempt + 1}/{max_attempts}")
@@ -96,19 +96,14 @@ def move_zoom_dialog_offscreen():
 
                 # Perform the drag operation
                 # Move to the drag point
+                print(f"Moving to drag point: ({drag_x}, {drag_y})")
                 pyautogui.moveTo(drag_x, drag_y, duration=0.5)
                 time.sleep(0.2)
 
-                # Press and hold left mouse button
-                pyautogui.mouseDown()
-                time.sleep(0.2)
-
                 # Drag to target position
+                print(f"Dragging to target position: ({target_x}, {target_y})")
                 pyautogui.dragTo(target_x, target_y, duration=1.0)
                 time.sleep(0.2)
-
-                # Release mouse button
-                pyautogui.mouseUp()
 
                 safe_print(
                     f"VideoFrameWnd window has been dragged to position ({target_x}, {target_y})"
@@ -135,11 +130,6 @@ def move_zoom_dialog_offscreen():
                 if attempt < max_attempts - 1:
                     time.sleep(1)
                     continue
-
-        if not success:
-            safe_print(
-                "Failed to move window after all attempts. Trying alternative method..."
-            )
 
     except Exception as e:
         safe_print(f"An error occurred while moving window off-screen: {e}")

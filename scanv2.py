@@ -42,7 +42,7 @@ def click_zoom_link(driver, zoom_link):
         print(f"An error occurred while clicking the Zoom link: {e}")
 
 
-def move_zoom_dialog_offscreen(driver):
+def move_zoom_dialog_offscreen():
     # Get all windows and analyze their properties
     all_windows = gw.getAllWindows()
     print("Searching for VideoFrameWnd window...")
@@ -81,24 +81,27 @@ def move_zoom_dialog_offscreen(driver):
         print(f"Will drag to position: ({target_x}, {target_y})")
 
         # Ensure window is active/focused first
+        print("Activating window")
         video_port_window.activate()
         time.sleep(0.5)  # Wait for window to activate
 
         # Perform the drag operation
         # Move to the drag point
+        print("Moving to drag point")
         pyautogui.moveTo(drag_x, drag_y, duration=0.5)
         time.sleep(0.2)
 
-        # Press and hold left mouse button
-        pyautogui.mouseDown()
-        time.sleep(0.2)
+        # # Press and hold left mouse button
+        # pyautogui.mouseDown()
+        # time.sleep(0.2)
 
         # Drag to target position
-        pyautogui.dragTo(target_x, target_y, duration=1.0)
+        print("Dragging to target position")
+        pyautogui.dragTo(target_x, target_y, duration=1.0, button="left")
         time.sleep(0.2)
 
-        # Release mouse button
-        pyautogui.mouseUp()
+        # # Release mouse button
+        # pyautogui.mouseUp()
 
         print(
             f"VideoFrameWnd window has been dragged to position ({target_x}, {target_y})"
@@ -166,20 +169,17 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         print(f"Zoom link found: {zoom_link}")
         click_zoom_link(driver, zoom_link)
 
-        # Move the Zoom dialog window off-screen
-        time.sleep(10)  # wait 10 seconds to allow the zoom window to load
-        move_zoom_dialog_offscreen(driver)
-
         print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
         start_time = datetime.now()
-        timeout_delta = timedelta(minutes=3)
+        minutes=3
+        timeout_delta = timedelta(minutes=minutes)
 
         while True:
             if datetime.now() - start_time > timeout_delta:
-                print(f"Timeout reached after 3 minutes")
-                start_obs_recording()
-                return
+                print(f"Timeout reached after '{minutes}' minutes")
+                # start_obs_recording()
+                break  # quit this loop
 
             messages = driver.find_elements(
                 By.XPATH, '//div[contains(@class, "message-in")]'
@@ -189,9 +189,12 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                 message = reversed_messages[0]
                 if target_text.lower() in message.text.lower():
                     print(f"Target text found: '{target_text}'")
-                    start_obs_recording()
-                    return  # Exit the loop after finding the target text
+                    # start_obs_recording()
+                    break
             time.sleep(5)  # Wait 5 seconds before checking again
+
+        # Move the Zoom dialog window off-screen
+        move_zoom_dialog_offscreen()
 
         start_obs_recording()
 
@@ -220,7 +223,7 @@ option.add_argument(r"user-data-dir=e:/src/WAZoom/whatsapp-cache")
 option.add_argument("start-maximized")
 service = Service(executable_path="e:\\src\\WAZoom\\chrome\\chromedriver.exe")
 whatsapp_driver = webdriver.Chrome(service=service, options=option)
-wait_for_text_and_start_recording(whatsapp_driver, "Edmund Trader Sharing", "JoinNow")
+wait_for_text_and_start_recording(whatsapp_driver, "Edmund Trader Sharing", "Join Now")
 # wait_for_text_and_start_recording(whatsapp_driver, "mother HP", "JoinMow")
 
 # Don't forget to close the drivers when you're done

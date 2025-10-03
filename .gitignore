@@ -3,3 +3,4 @@ chrome/chromedriver.exe
 whatsapp-cache/*
 WAZoom.code-workspace
 opt-oi.py
+__pycache__/*
