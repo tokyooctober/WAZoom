@@ -162,8 +162,13 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                 print(message.text)
                 match = re.search(zoom_link_regex, message.text)
                 if match:
-                    zoom_link = match.group(0)
-                    break
+                    today = datetime.now().date()
+                    message_date = message.get_attribute('data-pre-plain-text')
+                    if message_date:
+                        message_date = datetime.strptime(message_date.split(']')[0][1:], '%d/%m/%Y, %H:%M:%S').date()
+                        if message_date == today:
+                            zoom_link = match.group(0)
+                            break
             time.sleep(5)  # Wait 5 seconds before checking again
 
         print(f"Zoom link found: {zoom_link}")
@@ -187,10 +192,15 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
             reversed_messages = list(reversed(messages))
             if reversed_messages:
                 message = reversed_messages[0]
-                if target_text.lower() in message.text.lower():
-                    print(f"Target text found: '{target_text}'")
-                    # start_obs_recording()
-                    break
+                today = datetime.now().date()
+                message_date = message.get_attribute('data-pre-plain-text')
+                # Extract date from message timestamp
+                if message_date:
+                    message_date = datetime.strptime(message_date.split(']')[0][1:], '%d/%m/%Y, %H:%M:%S').date()
+                    if message_date == today and target_text.lower() in message.text.lower():
+                        print(f"Target text found: '{target_text}' from today")
+                        # start_obs_recording() 
+                        break
             time.sleep(5)  # Wait 5 seconds before checking again
 
         # Move the Zoom dialog window off-screen
