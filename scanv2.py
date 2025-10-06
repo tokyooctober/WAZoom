@@ -18,8 +18,46 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.action_chains import ActionChains
 import pyautogui
-
+import traceback
 # ... existing code ...
+
+
+
+def get_latest_available_incoming_date(driver):
+    """
+    Inspect recent incoming messages for any available date. If none carry a date,
+    try detecting a day divider like 'Today' in the chat. Returns a date or None.
+    """
+    try:
+        # Find all elements with data-pre-plain-text (these contain timestamps)
+        messages = driver.find_elements(By.CSS_SELECTOR, "[data-pre-plain-text]")
+
+        timestamps = []
+        for msg in messages:
+            raw = msg.get_attribute("data-pre-plain-text")
+            # Format: [10/6/24, 10:14 AM] Luke Woo:
+            match = re.match(r"\[(.*?)\]", raw)
+            if match:
+                try:
+                    timestamp_str = match.group(1)
+                    dt = datetime.strptime(timestamp_str, "%I:%M %p, %m/%d/%Y")
+                    timestamps.append(dt)
+                except ValueError:
+                    print(f"ValueError: Invalid timestamp format: {timestamp_str} ")
+                    pass  # Skip if format is wrong
+
+        # Get the latest datetime
+        if timestamps:
+            latest = max(timestamps)
+            print("Latest message timestamp:", latest.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            print("No valid timestamps found.")
+        return latest
+    except Exception as e:
+        print(f"An error occurred while getting the latest available incoming date: {e}")
+        print(traceback.format_exc())
+        return None
+
 
 
 def click_zoom_link(driver, zoom_link):
@@ -144,13 +182,26 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         )
         contact.click()
 
-        # Wait for the Zoom link to appear in the chat
-        print(f"Waiting for zoom link in {contact_name}'s chat...")
-
         zoom_link_regex = (
             r"https://([A-Za-z0-9]+)\.zoom\.([A-Za-z0-9]+(/[A-Za-z0-9?=\.]+)+)"
         )
         zoom_link = None
+
+        
+        # Wait until the latest available incoming message date is today
+        while True:
+            last_message_date = get_latest_available_incoming_date(driver)
+            print(f"last message date: {last_message_date}")
+            # print(f"now date is      : {datetime.now().date()}")
+            # print(f"last message date day: {last_message_date.day}")
+            # print(f"now date day is      : {datetime.now().day}")
+            if last_message_date is not None and last_message_date.day == datetime.now().day:
+                break
+            
+            time.sleep(5)
+
+        # Wait for the Zoom link to appear in the chat
+        print(f"Waiting for zoom link in {contact_name}'s chat...")
 
         while not zoom_link:
             messages = driver.find_elements(
@@ -162,13 +213,8 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                 print(message.text)
                 match = re.search(zoom_link_regex, message.text)
                 if match:
-                    today = datetime.now().date()
-                    message_date = message.get_attribute('data-pre-plain-text')
-                    if message_date:
-                        message_date = datetime.strptime(message_date.split(']')[0][1:], '%d/%m/%Y, %H:%M:%S').date()
-                        if message_date == today:
-                            zoom_link = match.group(0)
-                            break
+                    zoom_link = match.group(0)
+                    break
             time.sleep(5)  # Wait 5 seconds before checking again
 
         print(f"Zoom link found: {zoom_link}")
@@ -177,12 +223,12 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
         start_time = datetime.now()
-        minutes=3
-        timeout_delta = timedelta(minutes=minutes)
+        wait_time=3
+        timeout_delta = timedelta(minutes=wait_time)
 
         while True:
             if datetime.now() - start_time > timeout_delta:
-                print(f"Timeout reached after '{minutes}' minutes")
+                print(f"Timeout reached after '{wait_time}' minutes")
                 # start_obs_recording()
                 break  # quit this loop
 
@@ -192,15 +238,12 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
             reversed_messages = list(reversed(messages))
             if reversed_messages:
                 message = reversed_messages[0]
-                today = datetime.now().date()
-                message_date = message.get_attribute('data-pre-plain-text')
-                # Extract date from message timestamp
-                if message_date:
-                    message_date = datetime.strptime(message_date.split(']')[0][1:], '%d/%m/%Y, %H:%M:%S').date()
-                    if message_date == today and target_text.lower() in message.text.lower():
-                        print(f"Target text found: '{target_text}' from today")
-                        # start_obs_recording() 
-                        break
+  
+                if  target_text.lower() in message.text.lower():
+                    print(f"Target text found: '{target_text}' from today")
+                    # start_obs_recording() 
+                    break
+            
             time.sleep(5)  # Wait 5 seconds before checking again
 
         # Move the Zoom dialog window off-screen
@@ -234,7 +277,7 @@ option.add_argument("start-maximized")
 service = Service(executable_path="e:\\src\\WAZoom\\chrome\\chromedriver.exe")
 whatsapp_driver = webdriver.Chrome(service=service, options=option)
 wait_for_text_and_start_recording(whatsapp_driver, "Edmund Trader Sharing", "Join Now")
-# wait_for_text_and_start_recording(whatsapp_driver, "mother HP", "JoinMow")
+#wait_for_text_and_start_recording(whatsapp_driver, "Every Tue@MF", "JoinMow")
 
 # Don't forget to close the drivers when you're done
 whatsapp_driver.quit()
