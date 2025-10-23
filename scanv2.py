@@ -12,14 +12,96 @@ import pygetwindow as gw
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.action_chains import ActionChains
 import pyautogui
+from ctypes import cast, POINTER
+try:
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+    from comtypes import CLSCTX_ALL
+    AUDIO_AVAILABLE = True
+except ImportError:
+    print("Warning: pycaw and comtypes libraries not available. Audio control functions will not work.")
+    print("Install with: pip install pycaw comtypes")
+    AUDIO_AVAILABLE = False
 
-# ... existing code ...
+
+
+## INSERT
+
+def set_windows_volume(volume_level):
+    """
+    Set Windows system volume to a specified level.
+    
+    Args:
+        volume_level (int): Volume level from 0 to 100 (0 = mute, 100 = max volume)
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    if not AUDIO_AVAILABLE:
+        print("Error: Audio control libraries not available. Install pycaw and comtypes.")
+        return False
+        
+    try:
+        # Validate and clamp input parameter
+        if not isinstance(volume_level, (int, float)):
+            print(f"Error: Volume level must be a number. Got: {volume_level}")
+            return False
+        
+        # Clamp volume level to valid range
+        volume_level = max(0, min(100, int(volume_level)))
+        
+        # Get the default audio device
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = cast(interface, POINTER(IAudioEndpointVolume))
+        
+        # Convert volume level from 0-100 scale to 0.0-1.0 scale
+        volume_float = volume_level / 100.0
+        
+        # Set the volume using correct method name
+        volume.SetMasterVolumeLevelScalar(volume_float, None)
+        
+        print(f"Windows volume set to {volume_level}%")
+        return True
+        
+    except Exception as e:
+        print(f"Error setting Windows volume: {e}")
+        print(traceback.format_exc())
+        return False
+
+
+def get_windows_volume():
+    """
+    Get the current Windows system volume level.
+    
+    Returns:
+        int: Current volume level from 0 to 100, or -1 if error
+    """
+    if not AUDIO_AVAILABLE:
+        print("Error: Audio control libraries not available. Install pycaw and comtypes.")
+        return -1
+        
+    try:
+        # Get the default audio device
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = cast(interface, POINTER(IAudioEndpointVolume))
+        
+        # Get current volume (returns float between 0.0 and 1.0)
+        current_volume = volume.GetMasterVolumeLevelScalar()
+        
+        # Convert to 0-100 scale and round to nearest integer
+        volume_percentage = round(current_volume * 100)
+        
+        print(f"Current Windows volume: {volume_percentage}%")
+        return volume_percentage
+        
+    except Exception as e:
+        print(f"Error getting Windows volume: {e}")
+        print(traceback.format_exc())
+        return -1
 
 
 def click_zoom_link(driver, zoom_link):
@@ -118,7 +200,41 @@ def move_zoom_dialog_offscreen():
         print(f"Error moving zoom dialog off-screen: {e}")
 
 
-# ... existing code ...
+def get_latest_available_incoming_date(driver):
+    """
+    Inspect recent incoming messages for any available date. If none carry a date,
+    try detecting a day divider like 'Today' in the chat. Returns a date or None.
+    """
+    try:
+        # Find all elements with data-pre-plain-text (these contain timestamps)
+        messages = driver.find_elements(By.CSS_SELECTOR, "[data-pre-plain-text]")
+
+        timestamps = []
+        for msg in messages:
+            raw = msg.get_attribute("data-pre-plain-text")
+            # Format: [10/6/24, 10:14 AM] Luke Woo:
+            match = re.match(r"\[(.*?)\]", raw)
+            if match:
+                try:
+                    timestamp_str = match.group(1)
+                    dt = datetime.strptime(timestamp_str, "%I:%M %p, %m/%d/%Y")
+                    timestamps.append(dt)
+                except ValueError:
+                    print(f"ValueError: Invalid timestamp format: {timestamp_str} ")
+                    pass  # Skip if format is wrong
+
+        # Get the latest datetime
+        if timestamps:
+            latest = max(timestamps)
+            print("Latest message timestamp:", latest.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            print("No valid timestamps found.")
+        return latest
+    except Exception as e:
+        print(f"An error occurred while getting the latest available incoming date: {e}")
+        print(traceback.format_exc())
+        return None
+
 
 
 def wait_for_text_and_start_recording(driver, contact_name, target_text):
@@ -143,6 +259,18 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
             EC.element_to_be_clickable((By.XPATH, f'//span[@title="{contact_name}"]'))
         )
         contact.click()
+        
+        # Wait until the latest available incoming message date is today
+        while True:
+            last_message_date = get_latest_available_incoming_date(driver)
+            print(f"last message date: {last_message_date}")
+            # print(f"now date is      : {datetime.now().date()}")
+            # print(f"last message date day: {last_message_date.day}")
+            # print(f"now date day is      : {datetime.now().day}")
+            if last_message_date is not None and last_message_date.day == datetime.now().day:
+                break
+            
+            time.sleep(5)
 
         # Wait for the Zoom link to appear in the chat
         print(f"Waiting for zoom link in {contact_name}'s chat...")
@@ -176,6 +304,8 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         print(f"Zoom link found: {zoom_link}")
         click_zoom_link(driver, zoom_link)
 
+        set_windows_volume(25)
+        
         print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
         start_time = datetime.now()
