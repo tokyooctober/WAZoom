@@ -364,16 +364,30 @@ def start_obs_recording():
         logger.error(f"An error occurred while starting OBS recording: {e}")
 
 
-# Call the function to open WhatsApp and get Zoom link
-option = webdriver.ChromeOptions()
-option.add_argument(r"user-data-dir=e:/src/WAZoom/whatsapp-cache")
-option.add_argument("start-maximized")
-service = Service(executable_path="e:\\src\\WAZoom\\chrome\\chromedriver.exe")
-whatsapp_driver = webdriver.Chrome(service=service, options=option)
-wait_for_text_and_start_recording(whatsapp_driver, "Edmund Trader Sharing", "Join Now")
-# wait_for_text_and_start_recording(whatsapp_driver, "mother HP", "JoinMow")
+def main():
+    """
+    Main function to run the WhatsApp Zoom automation.
+    """
+    try:
+        # Call the function to open WhatsApp and get Zoom link
+        option = webdriver.ChromeOptions()
+        option.add_argument(r"user-data-dir=e:/src/WAZoom/whatsapp-cache")
+        option.add_argument("start-maximized")
+        service = Service(executable_path="e:\\src\\WAZoom\\chrome\\chromedriver.exe")
+        whatsapp_driver = webdriver.Chrome(service=service, options=option)
+        
+        logger.info("Starting WhatsApp Zoom automation...")
+        wait_for_text_and_start_recording(whatsapp_driver, "Edmund Trader Sharing", "Join Now")
+        # wait_for_text_and_start_recording(whatsapp_driver, "mother HP", "JoinMow")
+        
+        # Don't forget to close the drivers when you're done
+        whatsapp_driver.quit()
+        logger.info("WhatsApp Zoom automation completed successfully.")
+        
+    except Exception as e:
+        logger.error(f"An error occurred in main function: {e}")
+        logger.error(traceback.format_exc())
 
-# Don't forget to close the drivers when you're done
-whatsapp_driver.quit()
 
-# ... existing code ...
+if __name__ == "__main__":
+    main()
