@@ -1,11 +1,22 @@
-# start Zoom Window
-# start recording
-
 # Standard library imports
 import re
 import time
+import logging
 from datetime import datetime, timedelta
 import traceback
+
+# Setup logging with date-time filename
+log_filename = f"wazoom_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_filename),
+        logging.StreamHandler()  # Also log to console
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Third-party library imports
 import obsws_python as obs
 import pygetwindow as gw
@@ -21,13 +32,10 @@ try:
     from comtypes import CLSCTX_ALL
     AUDIO_AVAILABLE = True
 except ImportError:
-    print("Warning: pycaw and comtypes libraries not available. Audio control functions will not work.")
-    print("Install with: pip install pycaw comtypes")
+    logger.warning("pycaw and comtypes libraries not available. Audio control functions will not work.")
+    logger.warning("Install with: pip install pycaw comtypes")
     AUDIO_AVAILABLE = False
 
-
-
-## INSERT
 
 def set_windows_volume(volume_level):
     """
@@ -40,13 +48,13 @@ def set_windows_volume(volume_level):
         bool: True if successful, False otherwise
     """
     if not AUDIO_AVAILABLE:
-        print("Error: Audio control libraries not available. Install pycaw and comtypes.")
+        logger.error("Audio control libraries not available. Install pycaw and comtypes.")
         return False
         
     try:
         # Validate and clamp input parameter
         if not isinstance(volume_level, (int, float)):
-            print(f"Error: Volume level must be a number. Got: {volume_level}")
+            logger.error(f"Volume level must be a number. Got: {volume_level}")
             return False
         
         # Clamp volume level to valid range
@@ -63,12 +71,12 @@ def set_windows_volume(volume_level):
         # Set the volume using correct method name
         volume.SetMasterVolumeLevelScalar(volume_float, None)
         
-        print(f"Windows volume set to {volume_level}%")
+        logger.info(f"Windows volume set to {volume_level}%")
         return True
         
     except Exception as e:
-        print(f"Error setting Windows volume: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Error setting Windows volume: {e}")
+        logger.error(traceback.format_exc())
         return False
 
 
@@ -80,7 +88,7 @@ def get_windows_volume():
         int: Current volume level from 0 to 100, or -1 if error
     """
     if not AUDIO_AVAILABLE:
-        print("Error: Audio control libraries not available. Install pycaw and comtypes.")
+        logger.error("Audio control libraries not available. Install pycaw and comtypes.")
         return -1
         
     try:
@@ -95,12 +103,12 @@ def get_windows_volume():
         # Convert to 0-100 scale and round to nearest integer
         volume_percentage = round(current_volume * 100)
         
-        print(f"Current Windows volume: {volume_percentage}%")
+        logger.info(f"Current Windows volume: {volume_percentage}%")
         return volume_percentage
         
     except Exception as e:
-        print(f"Error getting Windows volume: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Error getting Windows volume: {e}")
+        logger.error(traceback.format_exc())
         return -1
 
 
@@ -115,29 +123,29 @@ def click_zoom_link(driver, zoom_link):
 
         # Click the link
         link_element.click()
-        print(f"Clicked on Zoom link: {zoom_link}")
+        logger.info(f"Clicked on Zoom link: {zoom_link}")
 
         # Wait for a few seconds to allow the browser to process the click
         time.sleep(5)
 
     except Exception as e:
-        print(f"An error occurred while clicking the Zoom link: {e}")
+        logger.error(f"An error occurred while clicking the Zoom link: {e}")
 
 
 def move_zoom_dialog_offscreen():
     # Get all windows and analyze their properties
     all_windows = gw.getAllWindows()
-    print("Searching for VideoFrameWnd window...")
+    logger.info("Searching for VideoFrameWnd window...")
     search_term = "videoframewnd"
     # Find window at specific coordinates
     video_port_windows = [w for w in all_windows if search_term in w.title.lower()]
 
     if not video_port_windows:
-        print("No window with title 'VideoFrameWnd' found")
+        logger.warning("No window with title 'VideoFrameWnd' found")
 
         return
 
-    print(f"Found {len(video_port_windows)} VideoFrameWnd window(s)")
+    logger.info(f"Found {len(video_port_windows)} VideoFrameWnd window(s)")
 
     # Get the video window
     video_port_window = video_port_windows[0]
@@ -149,8 +157,8 @@ def move_zoom_dialog_offscreen():
         window_width = video_port_window.width
         window_height = video_port_window.height
 
-        print(f"Current window position: ({current_x}, {current_y})")
-        print(f"Window size: {window_width} x {window_height}")
+        logger.info(f"Current window position: ({current_x}, {current_y})")
+        logger.info(f"Window size: {window_width} x {window_height}")
 
         # Calculate target position (off-screen)
         target_x = 1413
@@ -159,17 +167,17 @@ def move_zoom_dialog_offscreen():
         drag_x = current_x + (window_width // 2)  # Center horizontally
         drag_y = current_y + (window_height // 2)  # Center of title bar
 
-        print(f"Will drag from position: ({drag_x}, {drag_y})")
-        print(f"Will drag to position: ({target_x}, {target_y})")
+        logger.info(f"Will drag from position: ({drag_x}, {drag_y})")
+        logger.info(f"Will drag to position: ({target_x}, {target_y})")
 
         # Ensure window is active/focused first
-        print("Activating window")
+        logger.info("Activating window")
         video_port_window.activate()
         time.sleep(0.5)  # Wait for window to activate
 
         # Perform the drag operation
         # Move to the drag point
-        print("Moving to drag point")
+        logger.info("Moving to drag point")
         pyautogui.moveTo(drag_x, drag_y, duration=0.5)
         time.sleep(0.2)
 
@@ -178,14 +186,14 @@ def move_zoom_dialog_offscreen():
         # time.sleep(0.2)
 
         # Drag to target position
-        print("Dragging to target position")
+        logger.info("Dragging to target position")
         pyautogui.dragTo(target_x, target_y, duration=1.0, button="left")
         time.sleep(0.2)
 
         # # Release mouse button
         # pyautogui.mouseUp()
 
-        print(
+        logger.info(
             f"VideoFrameWnd window has been dragged to position ({target_x}, {target_y})"
         )
 
@@ -194,10 +202,10 @@ def move_zoom_dialog_offscreen():
         video_port_window = gw.getWindowsWithTitle(video_port_window.title)[0]
         new_x = video_port_window.left
         new_y = video_port_window.top
-        print(f"New window position: ({new_x}, {new_y})")
+        logger.info(f"New window position: ({new_x}, {new_y})")
 
     except Exception as e:
-        print(f"Error moving zoom dialog off-screen: {e}")
+        logger.error(f"Error moving zoom dialog off-screen: {e}")
 
 
 def get_latest_available_incoming_date(driver):
@@ -220,19 +228,19 @@ def get_latest_available_incoming_date(driver):
                     dt = datetime.strptime(timestamp_str, "%I:%M %p, %m/%d/%Y")
                     timestamps.append(dt)
                 except ValueError:
-                    print(f"ValueError: Invalid timestamp format: {timestamp_str} ")
+                    logger.warning(f"Invalid timestamp format: {timestamp_str} ")
                     pass  # Skip if format is wrong
 
         # Get the latest datetime
         if timestamps:
             latest = max(timestamps)
-            print("Latest message timestamp:", latest.strftime("%Y-%m-%d %H:%M:%S"))
+            logger.info(f"Latest message timestamp: {latest.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
-            print("No valid timestamps found.")
+            logger.warning("No valid timestamps found.")
         return latest
     except Exception as e:
-        print(f"An error occurred while getting the latest available incoming date: {e}")
-        print(traceback.format_exc())
+        logger.error(f"An error occurred while getting the latest available incoming date: {e}")
+        logger.error(traceback.format_exc())
         return None
 
 
@@ -241,7 +249,7 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
     try:
         # Open WhatsApp Web and navigate to the contact's chat
         driver.get("https://web.whatsapp.com/")
-        print("WhatsApp Web opened. Please scan the QR code if needed.")
+        logger.info("WhatsApp Web opened. Please scan the QR code if needed.")
 
         # Wait for the chat list to load
         WebDriverWait(driver, 60).until(
@@ -263,17 +271,17 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         # Wait until the latest available incoming message date is today
         while True:
             last_message_date = get_latest_available_incoming_date(driver)
-            print(f"last message date: {last_message_date}")
-            # print(f"now date is      : {datetime.now().date()}")
-            # print(f"last message date day: {last_message_date.day}")
-            # print(f"now date day is      : {datetime.now().day}")
+            logger.info(f"last message date: {last_message_date}")
+            # logger.debug(f"now date is      : {datetime.now().date()}")
+            # logger.debug(f"last message date day: {last_message_date.day}")
+            # logger.debug(f"now date day is      : {datetime.now().day}")
             if last_message_date is not None and last_message_date.day == datetime.now().day:
                 break
             
             time.sleep(5)
 
         # Wait for the Zoom link to appear in the chat
-        print(f"Waiting for zoom link in {contact_name}'s chat...")
+        logger.info(f"Waiting for zoom link in {contact_name}'s chat...")
 
         zoom_link_regex = (
             r"https://([A-Za-z0-9]+)\.zoom\.([A-Za-z0-9]+(/[A-Za-z0-9?=\.]+)+)"
@@ -292,8 +300,8 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
             rmsg = list(reversed(messages))
             if rmsg:
                 message = rmsg[0]
-                # Print the message text and its date/time
-                print(f"Message: {message.text}")
+                # Log the message text and its date/time
+                logger.info(f"Message: {message.text}")
                     
                 match = re.search(zoom_link_regex, message.text)
                 if match:
@@ -301,12 +309,12 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                     break
             time.sleep(5)  # Wait 5 seconds before checking again
 
-        print(f"Zoom link found: {zoom_link}")
+        logger.info(f"Zoom link found: {zoom_link}")
         click_zoom_link(driver, zoom_link)
 
         set_windows_volume(25)
         
-        print(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
+        logger.info(f"Waiting for text: '{target_text}' in {contact_name}'s chat...")
 
         start_time = datetime.now()
         minutes=3
@@ -314,7 +322,7 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
 
         while True:
             if datetime.now() - start_time > timeout_delta:
-                print(f"Timeout reached after '{minutes}' minutes")
+                logger.warning(f"Timeout reached after '{minutes}' minutes")
                 # start_obs_recording()
                 break  # quit this loop
 
@@ -326,7 +334,7 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
                 message = reversed_messages[0]
 
                 if target_text.lower() in message.text.lower():
-                    print(f"Target text found: '{target_text}' from today")
+                    logger.info(f"Target text found: '{target_text}' from today")
                     # start_obs_recording() 
                     break
             time.sleep(5)  # Wait 5 seconds before checking again
@@ -337,8 +345,8 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         start_obs_recording()
 
     except Exception as e:
-        print(f"An error occurred while waiting for text: {e}")
-        print(traceback.format_exc())
+        logger.error(f"An error occurred while waiting for text: {e}")
+        logger.error(traceback.format_exc())
         return False
 
 
@@ -347,13 +355,13 @@ def start_obs_recording():
         client = obs.ReqClient()
         resp = client.get_version()
         # Access it's field as an attribute
-        print(f"OBS Version: {resp.obs_version}")
+        logger.info(f"OBS Version: {resp.obs_version}")
         client.start_record()
-        print("OBS recording started.")
+        logger.info("OBS recording started.")
         client.disconnect()
 
     except Exception as e:
-        print(f"An error occurred while starting OBS recording: {e}")
+        logger.error(f"An error occurred while starting OBS recording: {e}")
 
 
 # Call the function to open WhatsApp and get Zoom link
