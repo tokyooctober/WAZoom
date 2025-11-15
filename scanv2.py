@@ -4,6 +4,8 @@ import time
 import logging
 from datetime import datetime, timedelta
 import traceback
+import argparse
+import sys
 
 # Setup logging with date-time filename
 log_filename = f"wazoom_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -142,7 +144,6 @@ def move_zoom_dialog_offscreen():
 
     if not video_port_windows:
         logger.warning("No window with title 'VideoFrameWnd' found")
-
         return
 
     logger.info(f"Found {len(video_port_windows)} VideoFrameWnd window(s)")
@@ -228,13 +229,15 @@ def get_latest_available_incoming_date(driver):
                     dt = datetime.strptime(timestamp_str, "%I:%M %p, %m/%d/%Y")
                     timestamps.append(dt)
                 except ValueError:
-                    logger.warning(f"Invalid timestamp format: {timestamp_str} ")
-                    pass  # Skip if format is wrong
+                    logger.warning(f"Invalid timestamp format: {timestamp_str}. returning today date.")
+                    # If timestamp parsing fails, return current datetime as a fallback
+                    # so callers receive a usable "today" value instead of continuing.
+                    return datetime.now()
 
         # Get the latest datetime
         if timestamps:
             latest = max(timestamps)
-            logger.info(f"Latest message timestamp: {latest.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"Last message timestamp: {latest.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
             logger.warning("No valid timestamps found.")
         return latest
@@ -271,10 +274,10 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
         # Wait until the latest available incoming message date is today
         while True:
             last_message_date = get_latest_available_incoming_date(driver)
-            logger.info(f"last message date: {last_message_date}")
-            # logger.debug(f"now date is      : {datetime.now().date()}")
-            # logger.debug(f"last message date day: {last_message_date.day}")
-            # logger.debug(f"now date day is      : {datetime.now().day}")
+            logger.info(f" last message date: {last_message_date}")
+            logger.info(f" now date is      : {datetime.now().date()}")
+            logger.info(f" last message date day: {last_message_date.day}")
+            logger.info(f" now date day is      : {datetime.now().day}")
             if last_message_date is not None and last_message_date.day == datetime.now().day:
                 break
             
@@ -341,9 +344,10 @@ def wait_for_text_and_start_recording(driver, contact_name, target_text):
 
         # Move the Zoom dialog window off-screen
         move_zoom_dialog_offscreen()
-
+        logger.info("Starting OBS recording...")
         start_obs_recording()
-
+        logger.info("OBS recording started.")
+        return True
     except Exception as e:
         logger.error(f"An error occurred while waiting for text: {e}")
         logger.error(traceback.format_exc())
@@ -359,9 +363,12 @@ def start_obs_recording():
         client.start_record()
         logger.info("OBS recording started.")
         client.disconnect()
+        return True
 
     except Exception as e:
         logger.error(f"An error occurred while starting OBS recording: {e}")
+        logger.error(traceback.format_exc())
+        return False
 
 
 def main():
@@ -369,6 +376,20 @@ def main():
     Main function to run the WhatsApp Zoom automation.
     """
     try:
+        # Parse CLI arguments
+        parser = argparse.ArgumentParser(description="WAZoom automation script")
+        parser.add_argument("--ons", action="store_true", help="Connect to OBS (ONS) and start recording, then quit")
+        args = parser.parse_args()
+
+        if args.ons:
+            logger.info("cmd line flags --ons starting OBS recording only.")
+            success = start_obs_recording()
+            if success:
+                logger.info("OBS recording started via --ons. Exiting now.")
+                return
+            else:
+                logger.error("Failed to start OBS recording via --ons. Exiting with error.")
+                return
         # Call the function to open WhatsApp and get Zoom link
         option = webdriver.ChromeOptions()
         option.add_argument(r"user-data-dir=e:/src/WAZoom/whatsapp-cache")
